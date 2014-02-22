@@ -35,13 +35,19 @@ OS_RELEASE_FILE	 = $(MBUILDDIR)/os-release
 MACHINE_CONF	 = $(MBUILDDIR)/machine.conf
 RC_LOCAL	 = $(abspath $(MACHINEDIR)/rc.local)
 
-INSTALLER_DIR	= $(abspath ../installer)
+
+INSTALLER_MACH = $(abspath $(MACHINEDIR)/installer)
+INSTALLER_ARCH = $(abspath ../installer)
+INSTALLER_DIR	= $(shell test -d $(INSTALLER_MACH) && \
+ echo $(INSTALLER_MACH) || $(INSTALLER_ARCH))
+#INSTALLER_DIR	= $(abspath ../installer)
 
 # List the packages to install
 PACKAGES_INSTALL_STAMPS = \
 	$(ZLIB_INSTALL_STAMP) \
 	$(BUSYBOX_INSTALL_STAMP) \
 	$(MTDUTILS_INSTALL_STAMP) \
+	$(PARTED_INSTALL_STAMP) \
 	$(DROPBEAR_INSTALL_STAMP)
 
 ifeq ($(GPT_ENABLE),yes)

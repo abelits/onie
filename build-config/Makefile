@@ -243,7 +243,9 @@ endif
 ifeq ($(GRUB_ENABLE),yes)
   include make/grub.make
 endif
+include make/parted.make
 include make/images.make
+include make/images-pxe.make
 include make/demo.make
 include make/docs.make
 

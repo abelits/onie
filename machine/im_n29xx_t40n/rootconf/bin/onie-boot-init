@@ -1,0 +1,125 @@
+#!/bin/sh
+
+# Initialize the ONIE configuration directory
+
+this_script=$(basename $(realpath $0))
+lib_dir="$(dirname $(realpath $0))/../lib/onie"
+. $lib_dir/onie-blkdev-common
+
+args="d:hvqf"
+
+usage()
+{
+    echo "usage: $this_script [-d <block-device>] [-hvqf]"
+    cat <<EOF
+Initialize the ONIE configuration directory.
+
+The directory is onie-config directory on the ext2 filesystem with BOOT label.
+
+COMMAND LINE OPTIONS
+
+	-d
+		Block device to use for the $onie_config_label partition (ignored).
+
+	-h
+		Help.  Print this message.
+
+	-f
+		Force.  Do not any confirmation questions, just do it.
+
+	-q
+		Quiet.  No printing, except for errors.
+
+	-v
+		Be verbose.  Print what is happening.
+EOF
+}
+
+
+device=auto
+force=no
+quiet=no
+verbose=no
+clear=no
+cmd_verbose=
+
+while getopts "$args" a ; do
+    case $a in
+        h)
+            usage
+            exit 0
+            ;;
+        v)
+            verbose=yes
+            cmd_verbose=-v
+            ;;
+        d)
+            device="$OPTARG"
+            ;;
+        q)
+            quiet=yes
+            ;;
+        f)
+            force=yes
+            ;;
+        *)
+            echo "Unknown argument: $a"
+            usage
+            exit 1
+    esac
+done
+
+[ "$verbose" = "yes" ] && quiet=no
+
+[ "$quiet" = "no" ] && echo "Mounting ONIE partitions ..."
+onie_mount_partitions write || {
+    echo "ERROR: Unable to mount ONIE partitions"
+    exit 1
+}
+
+# Point of no return -- check to be sure
+if [ "$force" = "no" ] ; then
+    echo -n "About to initialize $onie_config_dir.  Are you sure (y/N)? "
+    read ans
+    if [ "$ans" != "y" ] && [ "$ans" != "Y" ]; then
+        echo "Aborting initialization operation."
+	exit 0
+    fi
+fi
+
+rm -rf $onie_config_dir
+mkdir -p $onie_config_dir
+mkdir -p $onie_config_dir/grub.d
+
+err=0
+cat > $onie_config_dir/grub.d/20_custom << ___EOF___ || err=1
+## Begin 20_custom
+
+# To change the serial baud rate uncomment the following lines
+# and adjust to your needs
+#
+# serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1
+# CMDLINE_LINUX_SERIAL="console=ttyS0,115200n8"
+
+# Add extra kernel parms to ONIE boots
+# ONIE_PLATFORM_ARGS [more args ...]
+
+# Add additional kernel args to ONIE boots
+# ONIE_DEBUG_ARGS [more args ...]
+
+## End 20_custom
+___EOF___
+
+[ "$err" = "0" ] || {
+    echo "ERROR: Problems writing files to $onie_config_dir/grub.d"
+    exit 1
+}
+
+onie_umount_partitions || {  
+    echo "ERROR: Problems un-mounting ONIE partitions"
+    exit 1
+}
+
+[ "$quiet" = "no" ] && echo "Success: ONIE boot configuration initialized."
+exit 0
+

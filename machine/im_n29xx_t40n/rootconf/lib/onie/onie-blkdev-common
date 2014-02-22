@@ -1,0 +1,121 @@
+
+common_boot_mnt="/boot"
+#onie_boot_mnt="/mnt/onie-boot"
+#onie_config_mnt="/mnt/onie-config"
+onie_config_dir="/boot/onie-config"
+onie_config_ramdisk_dir="/onie-config-ramdisk"
+
+onie_tmp_mnt="/mnt/tmp"
+
+# gfdisk types and GPT UUIDs from gptfdisk-0.8.8/parttypes.cc
+grub_boot_gfdisk_type="0xEF02"
+onie_boot_gfdisk_type="0x3000"
+onie_config_gfdisk_type="0x3001"
+
+grub_boot_gpt_uuid="21686148-6449-6E6F-744E-656564454649"
+onie_boot_gpt_uuid="7412F7D5-A156-4B13-81DC-867174929325"
+onie_config_gpt_uuid="D4E6E2CD-4469-46F3-B5CB-1BFF57AFC149"
+
+common_boot_fs_type="ext2"
+#onie_boot_fs_type="ext4"
+#onie_config_fs_type="ext4"
+
+common_boot_label="BOOT"
+grub_boot_label="GRUB-BOOT"
+onie_boot_label="ONIE-BOOT"
+onie_config_label="ONIE-CONFIG"
+
+onie_umount_partitions()
+{
+    rc=0
+
+    [ -d "$common_boot_mnt" ] && {
+        umount "$common_boot_mnt" > /dev/null 2>&1
+        rmdir "$common_boot_mnt" || {
+            echo -e "ERROR: Can\x27t unmount $common_boot_mnt"
+            rc=$(( $rc + 1 ))
+        }
+    }
+    
+#    [ -d "$onie_boot_mnt" ] && {
+#        umount $onie_boot_mnt > /dev/null 2>&1
+#        rmdir $onie_boot_mnt || {
+#            echo "ERROR: Problems removing directory: $onie_boot_mnt"
+#            rc=$(( $rc + 1 ))
+#        }
+#    }        
+
+#    [ -d "$onie_config_mnt" ] && {
+#        umount $onie_config_mnt > /dev/null 2>&1
+#        rmdir $onie_config_mnt || {
+#            echo "ERROR: Problems removing directory: $onie_config_mnt"
+#            rc=$(( $rc + 1 ))
+#        }
+#    }
+
+    [ -d "$onie_tmp_mnt" ] && {
+        rmdir $onie_tmp_mnt || {
+            echo "ERROR: Problems removing directory: $onie_tmp_mnt"
+            rc=$(( $rc + 1 ))
+        }
+    }
+
+    return $rc
+}
+
+# Mount the ONIE partitions.
+#
+# When this function returns success the ONIE partitions are mounted
+# and the following variables are set:
+#
+#   onie_boot_mnt   -- filesystem mount point for the ONIE-BOOT partition (read-only)
+#   onie_config_mnt -- filesystem mount point for the ONIE-CONFIG partition (read-write)
+onie_mount_partitions()
+{
+
+    mkdir -p $onie_tmp_mnt
+#    onie_boot_mnt="$onie_tmp_mnt/boot"
+#    onie_config_mnt="$onie_tmp_mnt/config"
+    [ "$1" = "keep_mounted" -o "$2" = "keep_mounted" ] || \
+    trap onie_umount_partitions EXIT
+    
+    writeopt="ro"
+    [ "$1" = "write" -o "$2" = "write" ] && writeopt="rw"
+    
+    blkid | grep ' LABEL="'"${common_boot_label}"'" ' > /dev/null 2>&1 && {
+    cut -d' ' -f2 < /proc/mounts | grep $common_boot_mnt > /dev/null && umount $common_boot_mnt
+    mkdir -p $common_boot_mnt
+    mount -o defaults,$writeopt -t $common_boot_fs_type LABEL=$common_boot_label $common_boot_mnt || {
+          rmdir $common_boot_mnt
+          echo -e "ERROR: Can\x27t mount $common_boot_label filesystem on $common_boot_mnt"
+          #exit 1
+          onie_config_dir=$onie_configs_ramdisk_dir
+        }
+     [ -d $onie_config_dir -o "$writeopt" = "ro" ] || {
+        [ -d $onie_config_ramdisk_dir ] && {
+            mv $onie_config_ramdisk_dir $onie_config_dir
+            } || mkdir -p $onie_config_dir
+        }
+     } || {
+     onie_config_dir=$onie_config_ramdisk_dir
+     mkdir -p $onie_config_dir
+     } 
+#    mkdir -p $onie_boot_mnt
+#    mount -o defaults,ro -t $onie_boot_fs_type "LABEL=$onie_boot_label" $onie_boot_mnt || {
+#        echo "ERROR: Problems mounting $onie_boot_label on $onie_boot_mnt"
+#        exit 1
+#    }
+
+#    mkdir -p $onie_config_mnt
+#    mount -o defaults,rw -t $onie_config_fs_type "LABEL=$onie_config_label" $onie_config_mnt || {
+#        echo "ERROR: Problems mounting $onie_config_label on $onie_config_mnt"
+#        exit 1
+#    }
+
+    return 0
+}
+
+# Local Variables:
+# mode: shell-script
+# eval: (sh-set-shell "/bin/sh" t nil)
+# End:

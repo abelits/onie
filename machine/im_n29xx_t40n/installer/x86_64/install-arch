@@ -1,0 +1,218 @@
+# x86_64 specific ONIE installer functions
+
+common_boot_label="BOOT"
+common_boot_fs_type="ext2"
+common_boot_mnt="/boot"
+
+[ -r ./installer.conf ]  || {
+    echo "ERROR: ONIE machine installer.conf file is missing."
+    exit 1
+}
+. ./installer.conf
+
+onie_dev="$(install_device_platform)"
+[ $? -eq 0 ] || {
+    echo "WARNING: Unable to find ONIE install block device."
+}
+
+args_arch="d:"
+
+usage_arch=$(cat <<EOF
+	-d
+		Target ONIE install device.  Must be a valid block device.
+EOF
+)
+
+# Parse architecture specific installer args
+parse_arg_arch()
+{
+    a="$1"
+    optarg="$2"
+
+    case $a in
+        d)
+            onie_dev="$optarg"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+# Verify the format of the boot partitions
+# Check the label (TODO: add size check)
+
+verify_onie_partitions()
+{
+    boot_dev=`blkid | grep ' LABEL="'"${common_boot_label}"'" '| cut -d: -f1 | head -n 1`
+    [ "$boot_dev" = "" ] && return 1;
+    return 0
+}
+
+install_grub()
+{
+    boot_dev=`blkid | grep ' LABEL="'"${common_boot_label}"'" '| cut -d: -f1 | head -n 1`
+    [ "$boot_dev" = "" ] && return 1;
+
+    grub-install --recheck "$onie_dev" || {
+        echo "ERROR: grub-install failed on: $onie_dev"
+        exit 1
+    }
+    cp -r grub/* $common_boot_mnt/grub || {
+        echo "ERROR: copying grub files to destatition: $common_boot_mnt/grub"
+        exit 1
+    }
+    cat $common_boot_mnt/grub/grub-machine.cfg	\
+        $common_boot_mnt/grub/grub-common.cfg	\
+        $common_boot_mnt/grub/grub-onie.cfg   > $common_boot_mnt/grub/grub-default.cfg
+
+}
+
+# Default ONIE-CONFIG migration functions.
+#
+# migrate_config_pre  -- called before destroying existing ONIE-CONFIG
+# migrate_config_post -- called after creating new ONIE-CONFIG
+#
+# The default behaviour is to simply preserve the existing
+# information, i.e. migrate_config_pre_default makes a copy in /tmp
+# and migrate_config_post_default copies from /tmp into the new
+# partition.
+
+migrate_config_pre_default()
+{
+
+    migrate_config_dir=$(mktemp -d)
+    cp -a $onie_config_dir/. $migrate_config_dir
+    
+}
+
+migrate_config_post_default()
+{
+    
+    cp -a $migrate_config_dir/. $onie_config_dir
+    rm -rf $migrate_config_dir
+}
+
+clean_up_mnt()
+{
+    umount $common_boot_mnt > /dev/null 2>&1
+}
+
+install_onie()
+{
+
+    [ -r ./onie-blkdev-common ] || {
+        echo "ERROR: Unable to find onie-blkdev-common"
+        exit 1
+    }
+    . ./onie-blkdev-common
+
+    # Find install device.
+    # - Default value from burned in install.conf
+    # - Overridden with -d CLI arg
+    [ -b "$onie_dev" ] || {
+        echo "ERROR: Invalid ONIE install device: $onie_dev"
+        exit 1
+    }
+
+    echo "Installing ONIE on: $onie_dev"
+        
+    # Check that no partitions on this device are currently mounted
+    if grep -q "$onie_dev" /proc/mounts ; then
+        echo "ERROR: Partitions on target device ($onie_dev) are currently mounted."
+        grep "$onie_dev" /proc/mounts
+        exit 1
+    fi
+
+    format_disk=no
+
+    onie_config_dir="$common_boot_mnt/onie-config"
+    mkdir -p $common_boot_mnt 2>/dev/null
+
+    trap clean_up_mnt EXIT
+    boot_dev=`blkid | grep ' LABEL="'"${common_boot_label}"'" '| cut -d: -f1 | head -n 1`
+
+    mount -o defaults,rw -t $common_boot_fs_type $boot_dev $common_boot_mnt || {
+        echo "Error: Unable to mount ($boot_dev) on $common_boot_mnt"
+        exit 1
+    }
+
+    mkdir -p $onie_config_dir 2>/dev/null
+
+    # Install GRUB on $onie_boot_dev
+    install_grub || {
+        echo "Error: Unable to install GRUB"
+        exit 1
+    }
+
+    cp onie.vmlinuz onie.initrd $common_boot_mnt || {
+        echo "Error: Unable to copy ONIE kernel to $common_boot_mnt"
+        exit 1
+    }
+
+    # put the ONIE tools in place
+    ./mount-onie-tools quiet || {
+        echo "Error: Problems extracting onie-tools"
+        exit 1
+    }
+
+    # Migrate existing config - check running onie_config_version
+    # vs. the update image_config_version from the installer.
+
+    [ "$verbose" = "yes" ] && {
+        echo "Migrating ONIE configuration from version $onie_config_version to $image_config_version"
+    }
+    tmp_migrate_config_pre="migrate_config_pre_${onie_config_version}_to_${image_config_version}"
+    tmp_migrate_config_post="migrate_config_post_${onie_config_version}_to_${image_config_version}"
+
+    if type "$tmp_migrate_config_pre" > /dev/null && \
+        type "$tmp_migrate_config_post" > /dev/null ; then
+        migrate_config_pre="$tmp_migrate_config_pre"
+        migrate_config_post="$tmp_migrate_config_post"
+    else
+        migrate_config_pre="migrate_config_pre_default"
+        migrate_config_post="migrate_config_post_default"
+    fi
+
+    [ "$verbose" = "yes" ] && echo "Running migrate_config_pre: $migrate_config_pre"
+    eval $migrate_config_pre || {
+        echo "Error: Problems running migrate_config_pre: $migrate_config_pre"
+        exit 1
+    }
+
+    [ "$verbose" = "yes" ] && echo "Running migrate_config_post: $migrate_config_post"
+    eval $migrate_config_post || {
+        echo "Error: Problems running migrate_config_post: $migrate_config_post"
+        exit 1
+    }
+
+    umount $common_boot_mnt || {
+        echo "Error: Problems un-mouning $common_boot_mnt"
+        exit 1
+    }
+    rmdir $common_boot_mnt
+
+    # Use the new onie-tools from *this* installer to update the ONIE
+    # boot configuration.  This is required to pick up any new
+    # configuration *this* installer has put in place.  At a minimum
+    # the ONIE version and build dates are changing, for example.
+    [ "$verbose" = "yes" ] && echo "Updating ONIE boot configuration"
+    /mnt/onie-tools/bin/onie-boot-update -q || {
+        echo "Error: Problems updating ONIE boot configuration"
+        exit 1
+    }
+
+    # Done with the onie-tools
+    umount /mnt/onie-tools || {
+        echo "Error: Problems un-mouningt onie-tools"
+        exit 1
+    }
+
+}
+
+# Local Variables:
+# mode: shell-script
+# eval: (sh-set-shell "/bin/sh" t nil)
+# End:
