@@ -89,7 +89,7 @@ onie_mount_partitions()
           rmdir $common_boot_mnt
           echo -e "ERROR: Can\x27t mount $common_boot_label filesystem on $common_boot_mnt"
           #exit 1
-          onie_config_dir=$onie_configs_ramdisk_dir
+          onie_config_dir=$onie_config_ramdisk_dir
         }
      [ -d $onie_config_dir -o "$writeopt" = "ro" ] || {
         [ -d $onie_config_ramdisk_dir ] && {
