@@ -82,6 +82,6 @@ The changes currently made in im_devel branch include both modifications intende
 4.1 SSD device identification.
 ==============================
 
-The original procedure that identifies SSD as the block device on a specific controller identified by its position on the PCI bus, is too specific and would not work with other, otherwise identical COM Express modules. It was replaced with more universal definition as the first block device that is handled as an equivalent of a SCSI hard drive (sd), and that is attached to an AHCI controller.
+The original procedure that identifies SSD as the block device on the specific controller identified by its position on the PCI bus, is too specific and would not work with other, otherwise identical COM Express modules. It was replaced with more universal definition as the first block device that is handled as an equivalent of a SCSI hard drive (sd), and that is attached to an AHCI controller.
 
 This will always identify the SSD as long as it is the only SATA drive on the system, and will reliably exclude all other storage devices – at least until there will be more directly connected SATA drives. In the case this definition will become unusable on some new models, it will be necessary to add more definitions, and use dmidecode utility to distinguish be
