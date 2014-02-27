@@ -25,7 +25,9 @@ The above mentioned peculiarities dictate the following requirements for install
 
 1. Installer must be functional in a situation when user has no access to storage, USB or VGA ports. Serial console and Gigabit Ethernet should be sufficient to perform all installation, maintenance and recovery operations.
 2. Software should be usable on a hardware that varies and changes over time, within the limits expected from a x86 COM Express boards, what in its turn is similar to variation between x86-based servers.
+
 3. Peculiarities and requirements specific to x86 platform in general.
+======================================================================
 
 3.1. x86 switch and x86 server – similarities and differences.
 ==============================================================
