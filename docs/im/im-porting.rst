@@ -7,7 +7,8 @@ ONIE for x86 – changes made for IM platform and future direction of developmen
 
 ONIE (Open Network Install Environment) is a set of software and firmware intended to be used for installing, un-installing and updating software on network switches, manually or automatically, over the network. It is implemented as a small Linux system, capable of running on a ramdisk, so it can be seen as a minimal, specialized Linux distribution, with a set of tools and custom scripts (all implemented in Bourne shell) designed for the purpose of networked software installation.
 
-Originally ONIE was developed on PPC platform, and currently is being ported to other CPU architectures and hardware platforms used in network switches. Among other target platform there are the OCP (Open Compute Project) network switches, and at the moment when Interface Masters (IM) developers became involved, minimal ports to x86_64 platform in general, and to IM hardware in particular, were already produced by the original developers from Cumulus Networks.
+Originally ONIE was developed on PPC platform, and currently is being ported to other CPU architectures and hardware platforms used in network switches. Among other target platforms there are the OCP (Open Compute Project) network switches. At the moment when Interface Masters (IM) developers became involved, minimal ports to x86_64 platform in general, and to IM hardware in particular, were already produced by the original developers from Cumulus Networks.
+
 The port to IM hardware, though already capable of running on the target device, had to be adapted to be compatible with the rest of the software for that platform (or, to be more precise, ONIE and installable software had to be adapted to work with each other), to support peculiarities of the platform hardware, and to fit into the IM production procedures.
 
 2. Peculiarities of IM hardware.
