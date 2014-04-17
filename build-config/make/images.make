@@ -39,7 +39,7 @@ RC_LOCAL	 = $(abspath $(MACHINEDIR)/rc.local)
 INSTALLER_MACH = $(abspath $(MACHINEDIR)/installer)
 INSTALLER_ARCH = $(abspath ../installer)
 INSTALLER_DIR	= $(shell test -d $(INSTALLER_MACH) && \
- echo $(INSTALLER_MACH) || $(INSTALLER_ARCH))
+ echo $(INSTALLER_MACH) || echo $(INSTALLER_ARCH))
 #INSTALLER_DIR	= $(abspath ../installer)
 
 # List the packages to install
